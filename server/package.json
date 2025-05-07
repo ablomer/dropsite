@@ -1,0 +1,23 @@
+{
+  "name": "dropsite-server",
+  "version": "1.0.0",
+  "description": "Backend server for DropSite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^4.17.1",
+    "@tus/server": "^1.0.0-beta.5", 
+    "@tus/file-store": "^1.0.0-beta.2",
+    "dotenv": "^10.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  }
+}
