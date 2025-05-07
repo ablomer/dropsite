@@ -9,9 +9,9 @@
     "install-all": "npm run install-server && npm run install-client",
     "start-server": "cd server && npm start",
     "start-client": "cd client && npm start",
-    "start": "npm-run-all --parallel start-server start-client",
-    "build-client": "cd client && npm run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm-run-all --parallel start-server start-client",
+    "start": "npm run build-client && npm run start-server",
+    "build-client": "cd client && npm run build"
   },
   "keywords": [
     "file-transfer",

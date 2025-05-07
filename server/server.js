@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('@tus/server');
 const { FileStore } = require('@tus/file-store');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -16,6 +17,9 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
     console.log(`Created upload directory: ${uploadDir}`);
 }
+
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 const tusServer = new Server({
     path: '/files',
@@ -82,9 +86,18 @@ app.all('/files/*', (req, res) => {
     tusServer.handle(req, res);
 });
 
-// Simple route for testing server is up
-app.get('/', (req, res) => {
-    res.send('DropSite server is running. Use /files endpoint for TUS uploads.');
+// The "catchall" handler: for any request that doesn't
+// match one above (e.g., API routes, static files), send back React's index.html file.
+// This enables client-side routing.
+app.get('*', (req, res) => {
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+        console.error("Error sending index.html:", err);
+        // Send a more user-friendly message or specific status code if index.html is not found
+        res.status(404).send("Application resource not found");
+    }
+  });
 });
 
 const server = http.createServer(app);

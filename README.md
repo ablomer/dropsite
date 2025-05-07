@@ -1,7 +1,7 @@
 
 # DropSite
 
-A high-performance, self-hosted file drop site for transferring large files (10GB+) at maximum available bandwidth.
+A high-performance, self-hosted file drop site for transferring large files at maximum available bandwidth.
 
 ## Features
 

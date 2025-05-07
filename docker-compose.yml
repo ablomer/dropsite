@@ -1,0 +1,16 @@
+services:
+  dropsite:
+    container_name: dropsite
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    environment:
+      - PORT=3000
+      - UPLOAD_DIR=/app/server/uploads
+      # MAX_FILE_SIZE for server.js (e.g., 20GB = 20 * 1024 * 1024 * 1024 = 21474836480 bytes)
+      - MAX_FILE_SIZE=21474836480
+    volumes:
+      - ./uploads:/app/server/uploads
