@@ -31,8 +31,8 @@ ChartJS.register(
 
 // Check if we're in development mode
 const isDev = import.meta.env.DEV;
-// Make sure UPLOAD_ENDPOINT has the correct URL structure
-const UPLOAD_ENDPOINT = '/files/';
+
+const UPLOAD_ENDPOINT = `${window.location.protocol}//${window.location.host}/files/`;
 const CHUNK_SIZE = parseInt(import.meta.env.VITE_CHUNK_SIZE || '10485760'); // 10MB default, from .env or default
 const MAX_FILE_SIZE_BYTES = parseInt(import.meta.env.VITE_MAX_FILE_SIZE || '21474836480'); // 20GB default
 const TRANSFER_RATE_HISTORY_LENGTH = 30; // Number of data points to keep for the graph

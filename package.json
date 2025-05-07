@@ -11,7 +11,8 @@
     "start-client": "cd client && npm start",
     "dev": "npm-run-all --parallel start-server start-client",
     "start": "npm run build-client && npm run start-server",
-    "build-client": "cd client && npm run build"
+    "build-client": "cd client && npm run build",
+    "docker-build": "docker build -t dropsite ."
   },
   "keywords": [
     "file-transfer",
