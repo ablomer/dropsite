@@ -13,6 +13,9 @@ import {
   Filler
 } from 'chart.js';
 import './App.css';
+import FileTransferDemo from './components/FileTransferDemo';
+import ProgressGraph from './components/ProgressGraph';
+import { formatBytes, formatSpeed } from './utils/formatters';
 
 // Register Chart.js components
 ChartJS.register(
@@ -122,38 +125,41 @@ function App() {
     
     if (timeElapsed > 0) {
       const bytesDelta = bytesUploaded - lastBytesUploaded.current;
-      const currentRate = bytesDelta / timeElapsed; // bytes per second
       
-      setTransferRate(currentRate);
-      
-      // Update the transfer rate history
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      
-      setTransferRateHistory(prevHistory => {
-        const newHistory = [...prevHistory, currentRate];
-        // Keep only the most recent data points
-        if (newHistory.length > TRANSFER_RATE_HISTORY_LENGTH) {
-          return newHistory.slice(newHistory.length - TRANSFER_RATE_HISTORY_LENGTH);
-        }
-        return newHistory;
-      });
-      
-      setTimeLabels(prevLabels => {
-        const newLabels = [...prevLabels, timestamp];
-        if (newLabels.length > TRANSFER_RATE_HISTORY_LENGTH) {
-          return newLabels.slice(newLabels.length - TRANSFER_RATE_HISTORY_LENGTH);
-        }
-        return newLabels;
-      });
-      
-      // Calculate ETA
-      if (currentRate > 0) {
+      if (bytesDelta > 0) { // Only update rate and related states if new bytes were transferred
+        const currentRate = bytesDelta / timeElapsed; // bytes per second
+        
+        setTransferRate(currentRate);
+        
+        // Update the transfer rate history
+        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        setTransferRateHistory(prevHistory => {
+          const newHistory = [...prevHistory, currentRate];
+          // Keep only the most recent data points
+          if (newHistory.length > TRANSFER_RATE_HISTORY_LENGTH) {
+            return newHistory.slice(newHistory.length - TRANSFER_RATE_HISTORY_LENGTH);
+          }
+          return newHistory;
+        });
+        
+        setTimeLabels(prevLabels => {
+          const newLabels = [...prevLabels, timestamp];
+          if (newLabels.length > TRANSFER_RATE_HISTORY_LENGTH) {
+            return newLabels.slice(newLabels.length - TRANSFER_RATE_HISTORY_LENGTH);
+          }
+          return newLabels;
+        });
+        
+        // Calculate ETA (currentRate will be > 0 here)
         const remainingBytes = bytesTotal - bytesUploaded;
         const estimatedSeconds = remainingBytes / currentRate;
         setEta(estimatedSeconds);
       }
+      // If bytesDelta is 0, we don't update transferRate, history, or ETA,
+      // preventing the flicker to 0.
       
-      // Update refs for next calculation
+      // Update refs for next calculation, regardless of bytesDelta, as long as time has passed.
       lastBytesUploaded.current = bytesUploaded;
       lastUploadTime.current = currentTime;
     }
@@ -323,50 +329,35 @@ function App() {
   }, [file, updateTransferStats]);
 
   const toggleUpload = () => {
-    if (isUploading && upload) {
-      upload.abort();
-      setIsUploading(false);
-      console.log('Upload paused/aborted.');
-    } else if (file) {
-      if (upload && !uploadComplete && progress > 0) { // Resuming an aborted upload
-        console.log('Resuming upload...');
+    if (upload) {
+      if (isUploading) {
+        upload.abort();
+        setIsUploading(false);
+        setEta(null);
+      } else {
+        lastUploadTime.current = Date.now();
+        lastBytesUploaded.current = upload.offset;
         upload.start();
         setIsUploading(true);
-        // Reset time tracking for resumed upload
-        lastUploadTime.current = Date.now();
-      } else { // Starting a new upload
-        // If there was a previous error, clear it
-        setError(null);
-        startUpload();
+        uploadStartTime.current = Date.now() - (progress / 100 * file.size / (transferRate || 1));
       }
+    } else {
+      startUpload();
     }
   };
 
-  // Add a function to restart the upload from scratch
   const restartUpload = () => {
-    if (file) {
-      console.log('Restarting upload from scratch');
-      // Clear previous upload
-      setUpload(null);
-      // Reset state
-      setProgress(0);
-      setUploadURL(null);
-      setError(null);
-      setUploadComplete(false);
-      // Start new upload
-      setTimeout(() => {
+    if (upload) {
+      upload.abort().then(() => {
+        setUpload(null);
         startUpload();
-      }, 100);
+      }).catch(err => {
+        setError('Failed to abort previous upload. Please refresh and try again.');
+        console.error('Error aborting upload for restart:', err);
+      });
+    } else {
+      startUpload();
     }
-  };
-  
-  const formatBytes = (bytes, decimals = 2) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
   const triggerFileInput = () => {
@@ -382,164 +373,149 @@ function App() {
   }, [uploadComplete]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary-50">
-      <header className="bg-secondary-900 text-white py-6">
-        <div className="container mx-auto px-4 flex flex-col items-center">
-          <h1 className="text-3xl font-bold text-primary-300 mb-2">DropSite</h1>
-          <p className="text-secondary-300">Transfer large files at maximum speed</p>
+    <div className="gradient-bg flex flex-col">
+      <header className="dark-gradient-bg">
+        <div className="max-w-6xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
+          <div className="flex items-center space-x-3">
+            <img src="/vite.svg" alt="DropSite Logo" className="w-10 h-10" />
+            <h1 className="text-2xl font-bold text-slate-500">DropSite</h1>
+          </div>
         </div>
       </header>
-
-      <main className="container mx-auto px-4 py-8 flex-grow flex flex-col">
-        <div className="card max-w-3xl mx-auto w-full">
-          <h2 className="text-2xl font-semibold text-secondary-800 mb-6">Upload File</h2>
-          
-          {/* File Upload Area */}
-          <div 
-            className={`mb-6 ${isUploading || uploadComplete ? 'hidden' : 'block'}`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            <label 
-              htmlFor="file-upload" 
-              className={`file-input-label ${isDragging ? 'active' : ''} ${isUploading ? 'disabled' : ''}`}
+      
+      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white p-6">
+            {/* Simplified Drag & Drop Area */}
+            <div 
+              className={`mb-6 transition-all duration-300 ${
+                isDragging ? 'bg-sky-50' : 'bg-slate-50'
+              } ${isUploading || uploadComplete ? 'hidden' : 'block'}`}
+              style={{ borderRadius: '1rem' }}
             >
-              <div className="flex flex-col items-center justify-center p-6">
-                <svg className="w-12 h-12 text-secondary-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              <label 
+                htmlFor="file-upload"
+                className="flex flex-col items-center justify-center p-8 cursor-pointer"
+              >
+                <svg 
+                  className="w-14 h-14 text-sky-500 mb-4"
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" 
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <p className="text-secondary-600 mb-1 font-medium">Drag & drop your file here or</p>
-                <button 
-                  type="button" 
-                  onClick={triggerFileInput}
-                  className="btn btn-primary mt-2"
-                  disabled={isUploading}
-                >
-                  Browse Files
-                </button>
-                <p className="text-xs text-secondary-400 mt-2">Max file size: {formatBytes(MAX_FILE_SIZE_BYTES)}</p>
-              </div>
-            </label>
-            <input 
-              id="file-upload" 
-              ref={fileInputRef}
-              type="file" 
-              onChange={handleFileChange} 
-              disabled={isUploading}
-              className="file-input-hidden"
-            />
-          </div>
-
-          {/* Selected File Info */}
-          {file && (
-            <div className="mb-6 p-4 bg-secondary-100 rounded-lg">
-              <h3 className="font-medium text-secondary-800 mb-2">Selected File</h3>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                <div className="flex items-center">
-                  <svg className="w-8 h-8 text-secondary-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <div>
-                    <p className="font-medium text-secondary-800 break-all">{file.name}</p>
-                    <p className="text-sm text-secondary-500">{formatBytes(file.size)}</p>
-                  </div>
-                </div>
-                
-                <button 
-                  className={`mt-3 md:mt-0 btn ${isUploading ? 'btn-error' : uploadComplete ? 'btn-success' : 'btn-primary'}`}
-                  onClick={toggleUpload}
-                  disabled={!file && !isUploading}
-                >
-                  {isUploading ? 'Pause Upload' : (upload && !uploadComplete && progress > 0 ? 'Resume Upload' : uploadComplete ? 'Upload Complete' : 'Start Upload')}
-                </button>
-              </div>
+                <p className="text-slate-600 text-center mb-2 font-medium">
+                  {isDragging ? 'Drop to upload' : 'Drag & drop files or click to browse'}
+                </p>
+                <p className="text-sm text-slate-500">Supports files up to {formatBytes(MAX_FILE_SIZE_BYTES)}</p>
+              </label>
+              <input 
+                id="file-upload" 
+                ref={fileInputRef}
+                type="file" 
+                onChange={handleFileChange} 
+                className="hidden"
+                disabled={isUploading}
+              />
             </div>
-          )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-error-50 text-error-700 border border-error-200 rounded-lg">
-              <div className="flex flex-col">
-                <div className="flex">
-                  <svg className="w-5 h-5 mr-2 text-error-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  <p>{error}</p>
-                </div>
-                <div className="mt-3 flex justify-end">
+            {/* Selected File Info */}
+            {file && (
+              <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-6 h-6 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <div>
+                      <p className="font-medium text-slate-800 break-all">{file.name}</p>
+                      <p className="text-sm text-slate-600">{formatBytes(file.size)}</p>
+                    </div>
+                  </div>
                   <button 
-                    className="btn btn-secondary mr-2"
-                    onClick={restartUpload}
+                    className={`btn ${isUploading ? 'bg-red-500 hover:bg-red-600' : 'bg-sky-500 hover:bg-sky-600'} text-white`}
+                    onClick={toggleUpload}
                   >
-                    Retry Upload
+                    {isUploading ? 'Pause Upload' : 'Start Upload'}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Upload Progress Section */}
-          {(isUploading || (progress > 0 && !uploadComplete)) && (
-            <div className="mb-6">
-              <div className="mb-4 flex flex-col md:flex-row md:justify-between md:items-end">
-                <div>
-                  <h3 className="font-medium text-secondary-800 mb-1">Upload Progress</h3>
-                  <p className="text-3xl font-semibold text-primary-600">{progress}%</p>
-                </div>
-                <div className="mt-3 md:mt-0 flex flex-col items-start md:items-end">
-                  <p className="text-sm text-secondary-600">
-                    <span className="font-medium">Transfer Rate:</span> {formatBytes(transferRate)}/s
-                  </p>
-                  <p className="text-sm text-secondary-600">
-                    <span className="font-medium">ETA:</span> {formatDuration(eta)}
-                  </p>
+            {/* Error Message - Simplified */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <p>{error}</p>
                 </div>
               </div>
+            )}
 
-              <div className="w-full bg-secondary-200 rounded-full h-4 mb-6">
-                <div 
-                  className="bg-primary-500 h-4 rounded-full transition-all duration-300 ease-out"
-                  style={{width: `${progress}%`}}
-                ></div>
-              </div>
+            {/* Progress Section - Cleaner Layout */}
+            {(isUploading || (progress > 0 && !uploadComplete)) && (
+              <div className="mb-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-sm font-medium text-slate-600 mb-1">Transferring</p>
+                      <p className="text-2xl font-semibold text-slate-800">{progress}%</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-600">
+                        <span className="font-medium">{formatSpeed(transferRate)}</span>
+                      </p>
+                      <p className="text-xs text-slate-500">{formatDuration(eta)} remaining</p>
+                    </div>
+                  </div>
 
-              {/* Transfer Rate Graph */}
-              <div className="h-64 mt-6">
-                <Line data={chartData} options={chartOptions} />
-              </div>
-            </div>
-          )}
-
-          {/* Upload Success Information */}
-          {uploadComplete && uploadURL && (
-            <div className="mb-6 p-4 bg-success-50 border border-success-200 rounded-lg">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 mt-0.5 mr-2 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <div>
-                  <p className="font-medium text-success-700">Upload successful!</p>
-                  <p className="mt-1 text-secondary-600">Your file is now available at:</p>
-                  <a 
-                    href={uploadURL} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-2 block p-2 bg-white border border-secondary-200 rounded break-all text-primary-600 hover:text-primary-800"
-                  >
-                    {uploadURL}
-                  </a>
+                  {/* Progress Bar */}
+                  <div className="relative">
+                    <ProgressGraph 
+                      progress={parseFloat(progress)}
+                      transferRates={transferRateHistory}
+                      currentSpeed={transferRate}
+                      height={120}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Success State - Simplified */}
+            {uploadComplete && uploadURL && (
+              <div className="mt-6 p-4 bg-emerald-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <div>
+                    <p className="font-medium text-emerald-800">Transfer Complete</p>
+                    <a 
+                      href={uploadURL}
+                      className="mt-1 block text-sky-600 hover:text-sky-700 text-sm break-all"
+                      target="_blank" 
+                      rel="noopener"
+                    >
+                      {uploadURL}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
-
-      <footer className="bg-secondary-900 text-white py-4">
-        <div className="container mx-auto px-4 text-center text-secondary-400 text-sm">
-          <p>DropSite - A high-performance, self-hosted file drop site</p>
+      
+      <footer className="dark-gradient-bg mt-auto py-5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-sm text-slate-400/80 text-center">
+            © {new Date().getFullYear()} DropSite
+          </p>
         </div>
       </footer>
     </div>
