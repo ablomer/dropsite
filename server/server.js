@@ -23,6 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const tusServer = new Server({
     path: '/files',
+    respectForwardedHeaders: true,
     datastore: new FileStore({
         directory: uploadDir,
     }),
