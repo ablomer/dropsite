@@ -11,13 +11,16 @@ export default defineConfig({
       '/files': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
+        ws: true
       },
-      // Might want to proxy other backend routes if added
-      // '/api': {
-      //   target: 'http://localhost:3000',
-      //   changeOrigin: true,
-      //   rewrite: (path) => path.replace(/^\/api/, '')
-      // }
+      // Ensure trailing slash proxied routes work too
+      '/files/': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+        ws: true
+      }
     },
   },
 }); 
