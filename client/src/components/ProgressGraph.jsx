@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -90,7 +90,7 @@ const ProgressGraph = ({
   
   // Create labels array based on transfer rates length
   const labels = useMemo(() => {
-    return Array.from({ length: transferRates.length }, (_, i) => '');
+    return Array.from({ length: transferRates.length }, () => '');
   }, [transferRates.length]);
   
   // Prepare data for Chart.js

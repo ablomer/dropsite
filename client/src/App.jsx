@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as tus from 'tus-js-client';
-import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,7 +12,6 @@ import {
   Filler
 } from 'chart.js';
 import './App.css';
-import FileTransferDemo from './components/FileTransferDemo';
 import ProgressGraph from './components/ProgressGraph';
 import { formatBytes, formatSpeed } from './utils/formatters';
 
@@ -29,13 +27,8 @@ ChartJS.register(
   Filler
 );
 
-// Check if we're in development mode
-const isDev = import.meta.env.DEV;
-
 // Always use HTTPS in production, use the current protocol in development
-const UPLOAD_ENDPOINT = isDev
-  ? `${window.location.protocol}//${window.location.host}/files/`
-  : `https://${window.location.host}/files/`;
+const UPLOAD_ENDPOINT = `${window.location.protocol}//${window.location.host}/files/`;
 const CHUNK_SIZE = parseInt(import.meta.env.VITE_CHUNK_SIZE || '10485760'); // 10MB default, from .env or default
 const MAX_FILE_SIZE_BYTES = parseInt(import.meta.env.VITE_MAX_FILE_SIZE || '21474836480'); // 20GB default
 const TRANSFER_RATE_HISTORY_LENGTH = 30; // Number of data points to keep for the graph
@@ -61,65 +54,6 @@ function App() {
   const lastUploadTime = useRef(Date.now());
   const uploadStartTime = useRef(null);
   const fileInputRef = useRef(null);
-
-  // Initialize chart data
-  const chartData = {
-    labels: timeLabels,
-    datasets: [
-      {
-        label: 'Transfer Rate (MB/s)',
-        data: transferRateHistory.map(rate => (rate / (1024 * 1024)).toFixed(2)), // Convert to MB/s
-        fill: true,
-        backgroundColor: 'rgba(14, 165, 233, 0.2)',
-        borderColor: 'rgba(14, 165, 233, 1)',
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: true,
-        text: 'Upload Speed Over Time',
-        color: '#475569',
-        font: {
-          size: 16,
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context) => `${context.parsed.y} MB/s`,
-        },
-      },
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: false,
-        },
-        ticks: {
-          maxTicksLimit: 5,
-        },
-      },
-      y: {
-        display: true,
-        title: {
-          display: true,
-          text: 'MB/s',
-        },
-        min: 0,
-      },
-    },
-    animation: {
-      duration: 500,
-    },
-  };
 
   // Function to update transfer rate and ETA
   const updateTransferStats = useCallback((bytesUploaded, bytesTotal) => {
@@ -349,24 +283,6 @@ function App() {
     }
   };
 
-  const restartUpload = () => {
-    if (upload) {
-      upload.abort().then(() => {
-        setUpload(null);
-        startUpload();
-      }).catch(err => {
-        setError('Failed to abort previous upload. Please refresh and try again.');
-        console.error('Error aborting upload for restart:', err);
-      });
-    } else {
-      startUpload();
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
-  };
-
   // Clear upload data when a file is completed
   useEffect(() => {
     if (uploadComplete) {
@@ -395,6 +311,10 @@ function App() {
                 isDragging ? 'bg-sky-50' : 'bg-slate-50'
               } ${isUploading || uploadComplete ? 'hidden' : 'block'}`}
               style={{ borderRadius: '1rem' }}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <label 
                 htmlFor="file-upload"
@@ -502,7 +422,7 @@ function App() {
                       href={uploadURL}
                       className="mt-1 block text-sky-600 hover:text-sky-700 text-sm break-all"
                       target="_blank" 
-                      rel="noopener"
+                      rel="noreferrer noopener"
                     >
                       {uploadURL}
                     </a>
@@ -519,6 +439,14 @@ function App() {
           <p className="text-sm text-slate-400/80 text-center">
             © {new Date().getFullYear()} DropSite
           </p>
+          <a
+            href="https://github.com/yourusername/dropsite"
+            className="text-blue-500 hover:text-blue-700"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
         </div>
       </footer>
     </div>

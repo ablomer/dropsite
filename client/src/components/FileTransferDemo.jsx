@@ -10,8 +10,8 @@ const FileTransferDemo = ({
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [displayedTimeRemaining, setDisplayedTimeRemaining] = useState(0);
-  const [fileSize, setFileSize] = useState(222); // MB
-  const [fileName, setFileName] = useState('IC_latest_Win.zip');
+  const [fileSize] = useState(222); // MB
+  const [fileName] = useState('IC_latest_Win.zip');
   
   // Maximum number of data points to display
   const MAX_DATA_POINTS = 100; // Increased for smoother appearance
