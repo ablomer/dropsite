@@ -47,7 +47,6 @@ function App() {
   const [transferRate, setTransferRate] = useState(0); // bytes per second
   const [eta, setEta] = useState(null); // estimated time of arrival (in seconds)
   const [transferRateHistory, setTransferRateHistory] = useState([]);
-  const [timeLabels, setTimeLabels] = useState([]);
 
   // Refs for tracking upload progress and time
   const lastBytesUploaded = useRef(0);
@@ -65,12 +64,7 @@ function App() {
       
       if (bytesDelta > 0) { // Only update rate and related states if new bytes were transferred
         const currentRate = bytesDelta / timeElapsed; // bytes per second
-        
-        setTransferRate(currentRate);
-        
-        // Update the transfer rate history
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        
+        setTransferRate(currentRate);        
         setTransferRateHistory(prevHistory => {
           const newHistory = [...prevHistory, currentRate];
           // Keep only the most recent data points
@@ -78,14 +72,6 @@ function App() {
             return newHistory.slice(newHistory.length - TRANSFER_RATE_HISTORY_LENGTH);
           }
           return newHistory;
-        });
-        
-        setTimeLabels(prevLabels => {
-          const newLabels = [...prevLabels, timestamp];
-          if (newLabels.length > TRANSFER_RATE_HISTORY_LENGTH) {
-            return newLabels.slice(newLabels.length - TRANSFER_RATE_HISTORY_LENGTH);
-          }
-          return newLabels;
         });
         
         // Calculate ETA (currentRate will be > 0 here)
@@ -175,7 +161,6 @@ function App() {
     setTransferRate(0);
     setEta(null);
     setTransferRateHistory([]);
-    setTimeLabels([]);
   };
 
   const startUpload = useCallback(() => {
@@ -190,7 +175,6 @@ function App() {
     setTransferRate(0);
     setEta(null);
     setTransferRateHistory([]);
-    setTimeLabels([]);
     
     // Reset refs
     lastBytesUploaded.current = 0;
@@ -268,9 +252,36 @@ function App() {
   const toggleUpload = () => {
     if (upload) {
       if (isUploading) {
+        // Cancel and delete the upload
         upload.abort();
+        
+        // Delete the file from the server using tus protocol
+        if (upload.url) {
+          fetch(upload.url, {
+            method: 'DELETE',
+            headers: {
+              'Tus-Resumable': '1.0.0' // Required by tus protocol
+            },
+            mode: 'cors' // Explicitly request CORS mode
+          }).then(response => {
+            if (!response.ok && response.status !== 404) {
+              // 404 is acceptable as it means the file is already gone
+              throw new Error(`Server responded with ${response.status}`);
+            }
+            console.log('Upload canceled and deleted from server');
+          }).catch(err => {
+            console.error('Failed to delete upload from server:', err);
+            // Continue with local state reset even if server delete fails
+          });
+        }
+        
+        // Reset all states
         setIsUploading(false);
         setEta(null);
+        setProgress(0);
+        setTransferRate(0);
+        setTransferRateHistory([]);
+        setUpload(null);
       } else {
         lastUploadTime.current = Date.now();
         lastBytesUploaded.current = upload.offset;
@@ -361,7 +372,7 @@ function App() {
                     className={`btn ${isUploading ? 'bg-red-500 hover:bg-red-600' : 'bg-sky-500 hover:bg-sky-600'} text-white`}
                     onClick={toggleUpload}
                   >
-                    {isUploading ? 'Pause Upload' : 'Start Upload'}
+                    {isUploading ? 'Cancel Upload' : 'Start Upload'}
                   </button>
                 </div>
               </div>
