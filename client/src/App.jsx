@@ -440,8 +440,8 @@ function App() {
             © {new Date().getFullYear()} DropSite
           </p>
           <a
-            href="https://github.com/yourusername/dropsite"
-            className="text-blue-500 hover:text-blue-700"
+            href="https://github.com/ablomer/dropsite"
+            className="text-sm text-slate-400/80 hover:text-slate-500/80"
             target="_blank"
             rel="noreferrer"
           >
