@@ -37,6 +37,8 @@ const ProgressGraph = ({
   width = '100%',
   height = 60,
   speedUpdateFrequency = 300, // How often to update the displayed speed in milliseconds
+  eta = null,
+  formatDuration = (seconds) => seconds ? `${seconds}s` : 'Calculating...',
 }) => {
   // State for displayed speed value - updates more slowly
   const [displayedSpeed, setDisplayedSpeed] = useState(currentSpeed);
@@ -143,9 +145,10 @@ const ProgressGraph = ({
 
   return (
     <div className="w-full">
-      {/* Speed display above the graph - using slower updating displayedSpeed */}
-      <div className="flex justify-end text-xs text-gray-700 mb-1">
-        Speed: {formatSpeed(displayedSpeed, 1)}
+      {/* Speed and time remaining display above the graph */}
+      <div className="flex justify-between text-xs text-gray-700 mb-1">
+        <div className="text-slate-500">{formatDuration(eta)} remaining</div>
+        <div>Speed: {formatSpeed(displayedSpeed, 1)}</div>
       </div>
       
       {/* Progress area with grid background */}
@@ -205,6 +208,22 @@ const ProgressGraph = ({
               transition: 'width 100ms linear' 
             }} 
           />
+          
+          {/* Progress percentage indicator */}
+          <div 
+            className="absolute inset-0 flex items-end justify-start pb-1 pl-1 z-30"
+            style={{
+              opacity: progress > 2 ? 0.85 : 0,
+              transition: 'opacity 200ms ease'
+            }}
+          >
+            <div className="flex items-baseline">
+              <span className="text-3xl sm:text-4xl font-bold text-green-800/70 w-16 text-right">
+                {Math.round(progress)}
+              </span>
+              <span className="text-sm font-medium text-green-700/60 ml-0.5">%</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

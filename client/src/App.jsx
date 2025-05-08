@@ -13,7 +13,7 @@ import {
 } from 'chart.js';
 import './App.css';
 import ProgressGraph from './components/ProgressGraph';
-import { formatBytes, formatSpeed } from './utils/formatters';
+import { formatBytes } from './utils/formatters';
 
 // Register Chart.js components
 ChartJS.register(
@@ -394,18 +394,7 @@ function App() {
             {(isUploading || (progress > 0 && !uploadComplete)) && (
               <div className="mb-6 space-y-6">
                 <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <p className="text-sm font-medium text-slate-600 mb-1">Transferring</p>
-                      <p className="text-2xl font-semibold text-slate-800">{progress}%</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600">
-                        <span className="font-medium">{formatSpeed(transferRate)}</span>
-                      </p>
-                      <p className="text-xs text-slate-500">{formatDuration(eta)} remaining</p>
-                    </div>
-                  </div>
+                  {/* Remove the time remaining display */}
 
                   {/* Progress Bar */}
                   <div className="relative">
@@ -414,6 +403,8 @@ function App() {
                       transferRates={transferRateHistory}
                       currentSpeed={transferRate}
                       height={120}
+                      eta={eta}
+                      formatDuration={formatDuration}
                     />
                   </div>
                 </div>
